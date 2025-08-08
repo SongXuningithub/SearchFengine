@@ -126,10 +126,10 @@ python engine/api_server.py
 
 ```bash
 # GET请求
-curl "http://localhost:5000/api/search?q=股票投资&highlight=true"
+curl "http://localhost:8090/api/search?q=股票投资&highlight=true"
 
 # POST请求
-curl -X POST "http://localhost:5000/api/search" \
+curl -X POST "http://localhost:8090/api/search" \
   -H "Content-Type: application/json" \
   -d '{"query": "股票投资", "highlight": true, "max_results": 10}'
 ```
@@ -137,25 +137,25 @@ curl -X POST "http://localhost:5000/api/search" \
 #### 统计信息
 
 ```bash
-curl "http://localhost:5000/api/stats"
+curl "http://localhost:8090/api/stats"
 ```
 
 #### 健康检查
 
 ```bash
-curl "http://localhost:5000/api/health"
+curl "http://localhost:8090/api/health"
 ```
 
 #### 搜索建议
 
 ```bash
-curl "http://localhost:5000/api/suggest?q=股票&limit=5"
+curl "http://localhost:8090/api/suggest?q=股票&limit=5"
 ```
 
 #### 查询分析
 
 ```bash
-curl -X POST "http://localhost:5000/api/analyze" \
+curl -X POST "http://localhost:8090/api/analyze" \
   -H "Content-Type: application/json" \
   -d '{"query": "股票投资"}'
 ```
