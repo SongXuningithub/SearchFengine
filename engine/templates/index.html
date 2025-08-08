@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}金融搜索引擎 - 首页{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="container">
+        <div class="hero-content">
+            <h1 class="hero-title">金融信息搜索引擎</h1>
+            <p class="hero-subtitle">专注于金融、投资、市场信息的智能搜索平台</p>
+            
+            <div class="search-box">
+                <form action="/search" method="GET" class="search-form">
+                    <div class="search-input-wrapper">
+                        <input 
+                            type="text" 
+                            name="q" 
+                            placeholder="搜索股票、基金、投资信息..." 
+                            class="search-input"
+                            id="searchInput"
+                            autocomplete="off"
+                        >
+                        <button type="submit" class="search-button">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- 搜索建议 -->
+                <div class="search-suggestions" id="searchSuggestions" style="display: none;"></div>
+            </div>
+            
+            <div class="hero-features">
+                <div class="feature">
+                    <div class="feature-icon">📈</div>
+                    <h3>实时市场数据</h3>
+                    <p>获取最新的股票、基金、期货市场信息</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🔍</div>
+                    <h3>智能搜索</h3>
+                    <p>基于BM25算法的精准相关性排序</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">⚡</div>
+                    <h3>快速响应</h3>
+                    <p>毫秒级搜索响应，实时更新索引</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="container">
+        <h2 class="section-title">热门关键词</h2>
+        <div class="keywords-grid" id="popularKeywords">
+            <div class="loading">加载中...</div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="container">
+        <h2 class="section-title">系统统计</h2>
+        <div class="stats-grid" id="systemStats">
+            <div class="loading">加载中...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 加载热门关键词
+    loadPopularKeywords();
+    
+    // 加载系统统计
+    loadSystemStats();
+    
+    // 搜索建议功能
+    const searchInput = document.getElementById('searchInput');
+    const searchSuggestions = document.getElementById('searchSuggestions');
+    
+    let suggestionTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        clearTimeout(suggestionTimeout);
+        const query = this.value.trim();
+        
+        if (query.length < 2) {
+            searchSuggestions.style.display = 'none';
+            return;
+        }
+        
+        suggestionTimeout = setTimeout(() => {
+            fetchSuggestions(query);
+        }, 300);
+    });
+    
+    // 点击外部隐藏建议
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
+            searchSuggestions.style.display = 'none';
+        }
+    });
+});
+
+function loadPopularKeywords() {
+    fetch('/api/keywords?top=12')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const container = document.getElementById('popularKeywords');
+                container.innerHTML = data.keywords.map(item => `
+                    <a href="/search?q=${encodeURIComponent(item[0])}" class="keyword-tag">
+                        ${item[0]} <span class="keyword-count">${item[1]}</span>
+                    </a>
+                `).join('');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading keywords:', error);
+        });
+}
+
+function loadSystemStats() {
+    fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.total_documents !== undefined) {
+                const container = document.getElementById('systemStats');
+                container.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number">${data.total_documents.toLocaleString()}</div>
+                        <div class="stat-label">文档总数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${Math.round(data.avg_document_length)}</div>
+                        <div class="stat-label">平均文档长度</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${data.max_results}</div>
+                        <div class="stat-label">最大结果数</div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading stats:', error);
+        });
+}
+
+function fetchSuggestions(query) {
+    fetch(`/api/suggest?q=${encodeURIComponent(query)}&limit=5`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.suggestions && data.suggestions.length > 0) {
+                const container = document.getElementById('searchSuggestions');
+                container.innerHTML = data.suggestions.map(suggestion => `
+                    <div class="suggestion-item" onclick="selectSuggestion('${suggestion}')">
+                        ${suggestion}
+                    </div>
+                `).join('');
+                container.style.display = 'block';
+            } else {
+                document.getElementById('searchSuggestions').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching suggestions:', error);
+        });
+}
+
+function selectSuggestion(suggestion) {
+    document.getElementById('searchInput').value = suggestion;
+    document.getElementById('searchSuggestions').style.display = 'none';
+    document.querySelector('.search-form').submit();
+}
+</script>
+{% endblock %} 

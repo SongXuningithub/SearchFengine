@@ -1,8 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import logging
 import time
 from typing import Dict, Any
+import os
 
 from search_engine import SearchEngine
 from config.settings import API_CONFIG
@@ -12,7 +13,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 创建Flask应用
-app = Flask(__name__)
+app = Flask(__name__, 
+           template_folder='templates',
+           static_folder='static')
 CORS(app)
 
 # 设置JSON编码
@@ -35,6 +38,19 @@ def init_search_engine():
         logger.error(f"Failed to initialize search engine: {e}")
         raise
 
+# 前端页面路由
+@app.route('/')
+def index():
+    """主页"""
+    return render_template('index.html')
+
+@app.route('/search')
+def search_page():
+    """搜索页面"""
+    query = request.args.get('q', '')
+    return render_template('search.html', query=query)
+
+# API路由
 @app.route('/api/search', methods=['GET'])
 def search():
     """
@@ -78,6 +94,7 @@ def search():
         logger.info(f"Received query: '{query}' (length: {len(query)})")
         if query:
             logger.info(f"Query bytes: {query.encode('utf-8')}")
+        
         # 参数验证
         if not query:
             return jsonify({

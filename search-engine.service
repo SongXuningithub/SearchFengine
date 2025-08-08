@@ -1,0 +1,18 @@
+[Unit]
+Description=Search Engine API Server
+After=network.target
+
+[Service]
+Type=simple
+User=xun
+Group=xun
+WorkingDirectory=/home/xun/SearchFengine
+Environment=PATH=/home/xun/SearchFengine/venv/bin
+ExecStart=/home/xun/SearchFengine/venv/bin/python3 /home/xun/SearchFengine/engine/run_engine.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target 
