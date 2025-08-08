@@ -41,7 +41,7 @@ class Posting:
 class InvertedIndexShard:
     """倒排索引分片，负责管理单个分片的内存和磁盘存储"""
     
-    def __init__(self, shard_id: int, base_path: str, max_memory_size: int = 100):
+    def __init__(self, shard_id: int, base_path: str, max_memory_size: int = 100, clear_disk: bool = True):
         self.shard_id = shard_id
         self.base_path = base_path
         self.max_memory_size = max_memory_size
@@ -58,10 +58,11 @@ class InvertedIndexShard:
         self.lock = threading.Lock()
         
         # 清空磁盘文件
-        if os.path.exists(self.disk_file):
-            os.remove(self.disk_file)
-        if os.path.exists(self.metadata_file):
-            os.remove(self.metadata_file)
+        if clear_disk:
+            if os.path.exists(self.disk_file):
+                os.remove(self.disk_file)
+            if os.path.exists(self.metadata_file):
+                os.remove(self.metadata_file)
 
         # 加载元数据
         self._load_metadata()
@@ -372,6 +373,7 @@ class InvertedIndexBuilder:
     def get_posting(self, term: str) -> List[Posting]:
         """获取指定term的倒排列表"""
         shard_id = self._get_shard_id(term)
+        print(f"shard_id: {shard_id}")
         return self.shards[shard_id].get_postings(term)
     
     def search(self, query: str, max_results: int = 20) -> List[Dict]:
@@ -450,6 +452,35 @@ def main():
     print("\nShard information:")
     for shard_id, info in shard_info.items():
         print(f"Shard {shard_id}: {info['term_count']} terms, {info['memory_size']} in memory")
+
+class InvertedIndexReader:
+    """倒排索引读取器"""
+    def __init__(self, index_path: str, num_shards: int = 64):
+        self.index_path = index_path
+        self.num_shards = num_shards
+        self.shards: Dict[int, InvertedIndexShard] = {}
+        self._init_shards()
+    
+    def _init_shards(self):
+        """初始化所有分片"""
+        for i in range(self.num_shards):
+            self.shards[i] = InvertedIndexShard(
+                shard_id=i,
+                base_path=self.index_path,
+                clear_disk=False
+            )
+
+    def get_posting(self, term: str) -> List[Posting]:
+        """获取指定term的倒排列表"""
+        shard_id = self._get_shard_id(term)
+        return self.shards[shard_id].get_postings(term)
+
+    def _get_shard_id(self, term: str) -> int:
+        """根据term计算分片ID"""
+        # 使用哈希函数计算分片ID
+        hash_value = hashlib.md5(term.encode('utf-8')).hexdigest()
+        return int(hash_value, 16) % self.num_shards
+
 
 if __name__ == "__main__":
     main()
