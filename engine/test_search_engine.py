@@ -100,7 +100,7 @@ def test_posting_intersection():
         search_engine = SearchEngine()
         
         # 测试查询
-        test_query = "股票投资"
+        test_query = "广州的天气"
         terms = search_engine.tokenize_query(test_query)
         print(f"查询词: {terms}")
         
@@ -130,5 +130,5 @@ def test_posting_intersection():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    test_search_engine()
+    # test_search_engine()
     test_posting_intersection()
