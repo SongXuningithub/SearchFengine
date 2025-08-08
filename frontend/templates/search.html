@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}搜索结果 - 金融搜索引擎{% endblock %}
+
+{% block content %}
+<div class="search-page">
+    <div class="container">
+        <!-- 搜索框 -->
+        <div class="search-header">
+            <form action="/search" method="GET" class="search-form">
+                <div class="search-input-wrapper">
+                    <input 
+                        type="text" 
+                        name="q" 
+                        value="{{ query }}" 
+                        placeholder="搜索股票、基金、投资信息..." 
+                        class="search-input"
+                        id="searchInput"
+                        autocomplete="off"
+                    >
+                    <button type="submit" class="search-button">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 搜索结果 -->
+        <div class="search-results" id="searchResults">
+            {% if query %}
+                <div class="loading">搜索中...</div>
+            {% else %}
+                <div class="no-query">
+                    <h2>请输入搜索关键词</h2>
+                    <p>搜索股票、基金、投资、市场等相关金融信息</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- 搜索统计 -->
+        <div class="search-stats" id="searchStats" style="display: none;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const query = '{{ query }}';
+    
+    if (query) {
+        performSearch(query);
+    }
+    
+    // 搜索建议功能
+    const searchInput = document.getElementById('searchInput');
+    let suggestionTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        clearTimeout(suggestionTimeout);
+        const currentQuery = this.value.trim();
+        
+        if (currentQuery.length < 2) {
+            return;
+        }
+        
+        suggestionTimeout = setTimeout(() => {
+            // 这里可以添加搜索建议功能
+        }, 300);
+    });
+});
+
+function performSearch(query) {
+    const resultsContainer = document.getElementById('searchResults');
+    const statsContainer = document.getElementById('searchStats');
+    
+    resultsContainer.innerHTML = '<div class="loading">搜索中...</div>';
+    statsContainer.style.display = 'none';
+    
+    fetch(`/api/search?q=${encodeURIComponent(query)}&max_results=20`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayResults(data.results, data.total, query);
+                displayStats(data.total, query);
+            } else {
+                resultsContainer.innerHTML = `
+                    <div class="error">
+                        <h3>搜索出错</h3>
+                        <p>${data.error || '未知错误'}</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Search error:', error);
+            resultsContainer.innerHTML = `
+                <div class="error">
+                    <h3>网络错误</h3>
+                    <p>无法连接到搜索服务，请稍后重试</p>
+                </div>
+            `;
+        });
+}
+
+function displayResults(results, total, query) {
+    const container = document.getElementById('searchResults');
+    
+    if (results.length === 0) {
+        container.innerHTML = `
+            <div class="no-results">
+                <h3>未找到相关结果</h3>
+                <p>没有找到与"${query}"相关的金融信息</p>
+                <div class="suggestions">
+                    <h4>搜索建议：</h4>
+                    <ul>
+                        <li>尝试使用不同的关键词</li>
+                        <li>检查拼写是否正确</li>
+                        <li>使用更通用的术语</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    const resultsHtml = results.map((result, index) => `
+        <div class="result-item">
+            <div class="result-header">
+                <h3 class="result-title">
+                    <a href="${result.url}" target="_blank" rel="noopener">
+                        ${result.title || '无标题'}
+                    </a>
+                </h3>
+                <div class="result-meta">
+                    <span class="result-domain">${result.domain}</span>
+                    <span class="result-score">相关性: ${result.score.toFixed(2)}</span>
+                </div>
+            </div>
+            
+            <div class="result-content">
+                ${result.content || '暂无内容摘要'}
+            </div>
+            
+            ${result.highlights && result.highlights.length > 0 ? `
+                <div class="result-highlights">
+                    ${result.highlights.map(highlight => `
+                        <div class="highlight-item">${highlight}</div>
+                    `).join('')}
+                </div>
+            ` : ''}
+            
+            ${result.keywords && result.keywords.length > 0 ? `
+                <div class="result-keywords">
+                    ${result.keywords.slice(0, 5).map(keyword => `
+                        <span class="keyword-tag small">${keyword}</span>
+                    `).join('')}
+                </div>
+            ` : ''}
+        </div>
+    `).join('');
+    
+    container.innerHTML = resultsHtml;
+}
+
+function displayStats(total, query) {
+    const container = document.getElementById('searchStats');
+    
+    container.innerHTML = `
+        <div class="stats-info">
+            <span>找到 ${total} 个相关结果</span>
+            <span>搜索词: "${query}"</span>
+        </div>
+    `;
+    
+    container.style.display = 'block';
+}
+</script>
+{% endblock %} 
