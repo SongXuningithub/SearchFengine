@@ -368,6 +368,11 @@ class InvertedIndexBuilder:
                 json.dump(self.stats, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.error(f"Error saving stats: {e}")
+
+    def get_posting(self, term: str) -> List[Posting]:
+        """获取指定term的倒排列表"""
+        shard_id = self._get_shard_id(term)
+        return self.shards[shard_id].get_postings(term)
     
     def search(self, query: str, max_results: int = 20) -> List[Dict]:
         """搜索功能（简单实现）"""
