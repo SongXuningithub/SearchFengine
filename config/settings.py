@@ -165,4 +165,14 @@ FRONTEND_CONFIG = {
     'host': '0.0.0.0',
     'port': 8090,
     'debug': True
+}
+
+# API服务器配置
+API_CONFIG = {
+    'host': '0.0.0.0',
+    'port': 5000,
+    'debug': False,
+    'index_path': 'data/indexer',
+    'db_path': 'data/crawler/crawler.db',
+    'num_shards': 64
 } 
