@@ -1,0 +1,10 @@
+{
+  "basic_index": {
+    "built": true,
+    "last_updated": 1754650639.9893327
+  },
+  "bm25_index": {
+    "built": false,
+    "last_updated": null
+  }
+}

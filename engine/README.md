@@ -1,129 +1,181 @@
-# 搜索引擎引擎
+# 搜索引擎组件
 
-这个目录包含了搜索引擎的核心引擎类，实现了查询处理、倒排索引检索、文档求交和BM25相关性排序等功能。
-
-## 文件结构
-
-- `search_engine.py`: 主要的搜索引擎引擎类
-- `test_search_engine.py`: 测试脚本，演示如何使用搜索引擎
-- `README.md`: 本说明文档
+这是搜索引擎的核心组件，实现了基于倒排索引的搜索功能，支持中文分词、倒排列表求交和BM25相关性排序。
 
 ## 主要功能
 
-### SearchEngine 类
+- **中文分词**: 使用jieba进行中文分词，支持金融专业词汇
+- **倒排索引查询**: 通过InvertedIndexReader获取倒排列表
+- **倒排列表求交**: 对多个词的倒排列表进行高效的求交操作
+- **BM25相关性排序**: 使用BM25算法对搜索结果进行相关性排序
+- **高亮显示**: 支持在搜索结果中高亮显示匹配的查询词
+- **Web API**: 提供RESTful API接口
+- **命令行界面**: 提供交互式命令行界面
 
-`SearchEngine` 类是搜索引擎的核心，提供以下功能：
+## 核心类
 
-1. **查询分词**: 使用 `TextProcessor` 对用户查询进行分词
-2. **倒排索引检索**: 通过 `InvertedIndexBuilder` 获取每个分词的倒排列表
-3. **文档求交**: 对多个term的倒排列表进行求交操作
-4. **BM25排序**: 使用BM25算法对搜索结果进行相关性排序
-5. **回退搜索**: 当AND搜索无结果时，自动使用OR搜索
+### SearchEngine
 
-### 主要方法
+主要的搜索引擎类，包含以下核心方法：
 
-#### `__init__(index_builder, db_path)`
-初始化搜索引擎
-- `index_builder`: 倒排索引构建器实例
-- `db_path`: 数据库文件路径
-
-#### `search(query, max_results=None)`
-执行搜索
-- `query`: 查询字符串
-- `max_results`: 最大结果数
-- 返回: 搜索结果列表
-
-#### `search_with_fallback(query, max_results=None)`
-带回退的搜索，如果AND搜索无结果则使用OR搜索
-
-#### `tokenize_query(query)`
-对查询进行分词
-
-#### `get_postings_for_terms(terms)`
-获取多个term的倒排列表
-
-#### `intersect_postings(postings_dict)`
-对多个term的倒排列表进行求交
-
-#### `calculate_bm25_score(doc_id, query_terms, postings_dict)`
-计算BM25相关性分数
+- `tokenize_query(query)`: 对查询进行分词
+- `get_postings(term)`: 获取指定词的倒排列表
+- `intersect_postings(postings_list)`: 对多个倒排列表进行求交
+- `calculate_bm25_score(query_terms, doc_id)`: 计算BM25相关性分数
+- `search(query)`: 执行完整的搜索流程
+- `search_with_highlight(query)`: 执行带高亮的搜索
 
 ## 使用方法
 
-### 基本使用
+### 1. 基本使用
 
 ```python
-from indexer.inverted_index import InvertedIndexBuilder
 from engine.search_engine import SearchEngine
 
-# 创建索引构建器
-index_builder = InvertedIndexBuilder(
-    db_path="data/crawler/crawler.db",
-    index_path="data/indexer",
-    num_shards=16
-)
-
-# 创建搜索引擎
-search_engine = SearchEngine(index_builder, "data/crawler/crawler.db")
+# 初始化搜索引擎
+search_engine = SearchEngine()
 
 # 执行搜索
-results = search_engine.search("股票投资", max_results=10)
-
-# 打印结果
+results = search_engine.search("股票投资")
 for result in results:
+    print(f"文档ID: {result['doc_id']}")
     print(f"标题: {result['title']}")
-    print(f"分数: {result['score']:.3f}")
-    print(f"URL: {result['url']}")
-    print(f"预览: {result['content_preview']}")
-    print("---")
+    print(f"分数: {result['score']}")
 ```
 
-### 测试脚本
+### 2. 高亮搜索
 
-运行测试脚本：
+```python
+# 执行带高亮的搜索
+results = search_engine.search_with_highlight("人工智能")
+for result in results:
+    print(f"高亮标题: {result['highlighted_title']}")
+    print(f"高亮内容: {result['highlighted_content']}")
+```
+
+### 3. 查询分析
+
+```python
+# 分词
+terms = search_engine.tokenize_query("股票投资")
+print(f"分词结果: {terms}")
+
+# 获取倒排列表
+for term in terms:
+    postings = search_engine.get_postings(term)
+    print(f"词 '{term}' 有 {len(postings)} 个倒排项")
+```
+
+### 4. 倒排列表求交
+
+```python
+# 获取多个词的倒排列表
+postings_list = []
+for term in ["股票", "投资"]:
+    postings = search_engine.get_postings(term)
+    if postings:
+        postings_list.append(postings)
+
+# 求交
+intersection = search_engine.intersect_postings(postings_list)
+print(f"求交结果: {len(intersection)} 个文档")
+```
+
+## 命令行界面
+
+### 交互模式
 
 ```bash
-# 运行自动测试
+python engine/cli.py
+```
+
+进入交互模式后，可以输入：
+- `股票` - 搜索包含"股票"的文档
+- `analyze 股票投资` - 分析"股票投资"查询
+- `highlight 人工智能` - 高亮搜索"人工智能"
+- `help` - 显示帮助信息
+- `quit` - 退出
+
+### 单次搜索
+
+```bash
+# 普通搜索
+python engine/cli.py "股票投资"
+
+# 高亮搜索
+python engine/cli.py "人工智能" --highlight
+
+# 分析查询
+python engine/cli.py "股票投资" --analyze
+
+# 限制结果数
+python engine/cli.py "科技" --max-results 5
+```
+
+## Web API
+
+### 启动API服务器
+
+```bash
+python engine/api_server.py
+```
+
+### API接口
+
+#### 搜索接口
+
+```bash
+# GET请求
+curl "http://localhost:5000/api/search?q=股票投资&highlight=true"
+
+# POST请求
+curl -X POST "http://localhost:5000/api/search" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "股票投资", "highlight": true, "max_results": 10}'
+```
+
+#### 统计信息
+
+```bash
+curl "http://localhost:5000/api/stats"
+```
+
+#### 健康检查
+
+```bash
+curl "http://localhost:5000/api/health"
+```
+
+#### 搜索建议
+
+```bash
+curl "http://localhost:5000/api/suggest?q=股票&limit=5"
+```
+
+#### 查询分析
+
+```bash
+curl -X POST "http://localhost:5000/api/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "股票投资"}'
+```
+
+## 测试
+
+### 运行测试脚本
+
+```bash
 python engine/test_search_engine.py
-
-# 运行交互式搜索
-python engine/test_search_engine.py --interactive
 ```
 
-## BM25算法
+测试脚本会：
+1. 测试搜索引擎的基本功能
+2. 测试倒排列表求交功能
+3. 测试各种查询场景
 
-搜索引擎使用BM25算法进行相关性排序，该算法考虑了：
+## 配置
 
-1. **词频(TF)**: 查询词在文档中出现的频率
-2. **逆文档频率(IDF)**: 查询词在整个文档集合中的稀有程度
-3. **文档长度归一化**: 考虑文档长度对分数的影响
-
-BM25公式：
-```
-BM25(q,d) = Σ IDF(qi) * (f(qi,d) * (k1 + 1)) / (f(qi,d) + k1 * (1 - b + b * |d|/avgdl))
-```
-
-其中：
-- `f(qi,d)`: 词qi在文档d中的频率
-- `|d|`: 文档d的长度
-- `avgdl`: 平均文档长度
-- `k1`, `b`: BM25参数（默认k1=1.5, b=0.75）
-
-## 搜索策略
-
-### AND搜索（默认）
-- 要求所有查询词都出现在文档中
-- 使用倒排列表求交操作
-- 适合精确搜索
-
-### OR搜索（回退）
-- 当AND搜索无结果时自动启用
-- 使用倒排列表求并操作
-- 适合模糊搜索
-
-## 配置参数
-
-搜索引擎的配置参数在 `config/settings.py` 中定义：
+搜索引擎的配置在 `config/settings.py` 中：
 
 ```python
 SEARCH_CONFIG = {
@@ -135,25 +187,24 @@ SEARCH_CONFIG = {
 
 ## 性能优化
 
-1. **分片索引**: 使用分片技术提高索引检索效率
-2. **文档统计缓存**: 预先加载文档统计信息，避免重复计算
-3. **批量处理**: 支持批量获取文档详细信息
-4. **内存管理**: 合理控制内存使用，避免内存溢出
+1. **倒排列表求交优化**: 按长度排序，优先处理短的倒排列表
+2. **BM25计算优化**: 预计算文档统计信息，避免重复计算
+3. **内存管理**: 合理使用内存，避免加载过多数据
 
-## 错误处理
+## 依赖
 
-搜索引擎包含完善的错误处理机制：
+- `jieba`: 中文分词
+- `rank-bm25`: BM25算法实现
+- `flask`: Web API框架
+- `flask-cors`: 跨域支持
 
-1. **数据库连接错误**: 自动重试和错误恢复
-2. **索引文件缺失**: 提供清晰的错误提示
-3. **查询处理错误**: 优雅处理异常情况
-4. **结果获取错误**: 返回简化结果而不是完全失败
+## 文件结构
 
-## 扩展性
-
-搜索引擎设计具有良好的扩展性：
-
-1. **模块化设计**: 各组件独立，易于替换和扩展
-2. **配置驱动**: 通过配置文件控制行为
-3. **接口标准化**: 提供标准化的搜索接口
-4. **插件支持**: 可以轻松添加新的排序算法或过滤条件
+```
+engine/
+├── search_engine.py      # 核心搜索引擎类
+├── api_server.py         # Web API服务器
+├── cli.py               # 命令行界面
+├── test_search_engine.py # 测试脚本
+└── README.md            # 说明文档
+```

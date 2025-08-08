@@ -1,197 +1,134 @@
 #!/usr/bin/env python3
 """
 搜索引擎测试脚本
-演示如何使用SearchEngine类进行搜索
 """
 
+import logging
 import sys
 import os
-import logging
 
 # 添加项目根目录到Python路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from engine.index_adapter import AdaptedInvertedIndexBuilder
 from engine.search_engine import SearchEngine
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 def test_search_engine():
-    """测试搜索引擎"""
-    
-    # 检查索引是否存在
-    index_path = "data/indexer"
-    if not os.path.exists(index_path):
-        logger.error(f"Index path {index_path} does not exist. Please build the index first.")
-        return
-    
-    # 检查数据库是否存在
-    db_path = "data/crawler/crawler.db"
-    if not os.path.exists(db_path):
-        logger.error(f"Database {db_path} does not exist. Please run crawler first.")
-        return
+    """测试搜索引擎功能"""
+    print("=== 搜索引擎测试 ===")
     
     try:
-        # 创建适配后的索引构建器
-        logger.info("Loading inverted index...")
-        index_builder = AdaptedInvertedIndexBuilder(
-            index_path=index_path,
-            num_shards=64
-        )
-
-        postings = index_builder.get_posting("中国")
-        print(f"找到 {len(postings)} 个posting")
-        for posting in postings[:3]:
-            print(f"  doc_id: {posting.doc_id}, tf: {posting.tf}")
-        return
-    
-        # 创建搜索引擎
-        logger.info("Initializing search engine...")
-        search_engine = SearchEngine(index_builder, db_path)
+        # 初始化搜索引擎
+        print("1. 初始化搜索引擎...")
+        search_engine = SearchEngine()
         
-        # 打印搜索统计信息
+        # 获取搜索统计信息
         stats = search_engine.get_search_stats()
-        logger.info(f"Search engine stats: {stats}")
+        print(f"文档总数: {stats['total_documents']}")
+        print(f"平均文档长度: {stats['avg_document_length']:.2f}")
+        print(f"BM25参数 - k1: {stats['bm25_k1']}, b: {stats['bm25_b']}")
+        print(f"最大结果数: {stats['max_results']}")
         
         # 测试查询
         test_queries = [
             "股票",
             "投资",
             "基金",
-            "比特币",
+            "科技",
+            "汽车",
             "人工智能",
             "区块链",
-            "金融科技",
-            "市场分析",
-            "经济政策",
-            "科技股"
+            "比特币",
+            "特斯拉",
+            "苹果公司"
         ]
         
-        logger.info("Starting search tests...")
-        
+        print("\n2. 执行搜索测试...")
         for query in test_queries:
-            logger.info(f"\n{'='*50}")
-            logger.info(f"Testing query: '{query}'")
+            print(f"\n--- 查询: '{query}' ---")
             
-            # 执行搜索
-            results = search_engine.search(query, max_results=5)
+            # 分词测试
+            terms = search_engine.tokenize_query(query)
+            print(f"分词结果: {terms}")
+            
+            # 搜索测试
+            results = search_engine.search(query)
+            print(f"搜索结果数量: {len(results)}")
             
             if results:
-                logger.info(f"Found {len(results)} results:")
-                for i, result in enumerate(results, 1):
-                    logger.info(f"{i}. {result['title']} (Score: {result['score']:.3f})")
-                    logger.info(f"   URL: {result['url']}")
-                    logger.info(f"   Preview: {result['content_preview'][:100]}...")
+                print("前3个结果:")
+                for i, result in enumerate(results[:3]):
+                    print(f"  {i+1}. 文档ID: {result['doc_id']}")
+                    print(f"     标题: {result['title']}")
+                    print(f"     内容: {result['content'][:100]}...")
+                    print(f"     分数: {result['score']:.4f}")
+                    print(f"     长度: {result['length']}")
             else:
-                logger.info("No results found")
-                
-                # 尝试OR搜索
-                logger.info("Trying OR search...")
-                or_results = search_engine.search_with_fallback(query, max_results=3)
-                if or_results:
-                    logger.info(f"OR search found {len(or_results)} results:")
-                    for i, result in enumerate(or_results, 1):
-                        logger.info(f"{i}. {result['title']} (Score: {result['score']:.3f})")
-                else:
-                    logger.info("No results found even with OR search")
+                print("  无搜索结果")
         
-        logger.info(f"\n{'='*50}")
-        logger.info("Search engine test completed!")
+        # 测试高亮搜索
+        print("\n3. 测试高亮搜索...")
+        highlight_query = "股票投资"
+        highlight_results = search_engine.search_with_highlight(highlight_query)
+        print(f"高亮搜索结果数量: {len(highlight_results)}")
+        
+        if highlight_results:
+            print("前2个高亮结果:")
+            for i, result in enumerate(highlight_results[:2]):
+                print(f"  {i+1}. 文档ID: {result['doc_id']}")
+                print(f"     高亮标题: {result['highlighted_title']}")
+                print(f"     高亮内容: {result['highlighted_content'][:150]}...")
+                print(f"     分数: {result['score']:.4f}")
+        
+        print("\n=== 测试完成 ===")
         
     except Exception as e:
-        logger.error(f"Error testing search engine: {e}")
+        print(f"测试过程中出现错误: {e}")
         import traceback
         traceback.print_exc()
 
-def interactive_search():
-    """交互式搜索"""
-    
-    # 检查索引是否存在
-    index_path = "data/indexer"
-    if not os.path.exists(index_path):
-        logger.error(f"Index path {index_path} does not exist. Please build the index first.")
-        return
-    
-    # 检查数据库是否存在
-    db_path = "data/crawler/crawler.db"
-    if not os.path.exists(db_path):
-        logger.error(f"Database {db_path} does not exist. Please run crawler first.")
-        return
+def test_posting_intersection():
+    """测试倒排列表求交功能"""
+    print("\n=== 倒排列表求交测试 ===")
     
     try:
-        # 创建索引构建器
-        logger.info("Loading inverted index...")
-        index_builder = InvertedIndexBuilder(
-            db_path=db_path,
-            index_path=index_path,
-            num_shards=16,
-            batch_size=1000,
-            max_memory_size=10000
-        )
+        search_engine = SearchEngine()
         
-        # 创建搜索引擎
-        logger.info("Initializing search engine...")
-        search_engine = SearchEngine(index_builder, db_path)
+        # 测试查询
+        test_query = "股票投资"
+        terms = search_engine.tokenize_query(test_query)
+        print(f"查询词: {terms}")
         
-        logger.info("Interactive search mode. Type 'quit' to exit.")
+        # 获取倒排列表
+        postings_list = []
+        for term in terms:
+            postings = search_engine.get_postings(term)
+            if postings:
+                postings_list.append(postings)
+                print(f"词 '{term}' 的倒排列表长度: {len(postings)}")
+                print(f"  前3个文档ID: {[p.doc_id for p in postings[:3]]}")
+            else:
+                print(f"词 '{term}' 没有倒排列表")
         
-        while True:
-            try:
-                query = input("\nEnter search query: ").strip()
-                
-                if query.lower() in ['quit', 'exit', 'q']:
-                    break
-                
-                if not query:
-                    continue
-                
-                # 执行搜索
-                results = search_engine.search(query, max_results=10)
-                
-                if results:
-                    print(f"\nFound {len(results)} results:")
-                    for i, result in enumerate(results, 1):
-                        print(f"\n{i}. {result['title']}")
-                        print(f"   Score: {result['score']:.3f}")
-                        print(f"   URL: {result['url']}")
-                        print(f"   Preview: {result['content_preview'][:150]}...")
-                else:
-                    print("No results found.")
-                    
-                    # 尝试OR搜索
-                    print("Trying OR search...")
-                    or_results = search_engine.search_with_fallback(query, max_results=5)
-                    if or_results:
-                        print(f"OR search found {len(or_results)} results:")
-                        for i, result in enumerate(or_results, 1):
-                            print(f"\n{i}. {result['title']}")
-                            print(f"   Score: {result['score']:.3f}")
-                            print(f"   URL: {result['url']}")
-                    else:
-                        print("No results found even with OR search.")
-                        
-            except KeyboardInterrupt:
-                print("\nExiting...")
-                break
-            except Exception as e:
-                logger.error(f"Error during search: {e}")
+        # 求交
+        if postings_list:
+            intersection = search_engine.intersect_postings(postings_list)
+            print(f"求交结果: {len(intersection)} 个文档")
+            if intersection:
+                print(f"前5个文档ID: {intersection[:5]}")
+        else:
+            print("没有可求交的倒排列表")
         
     except Exception as e:
-        logger.error(f"Error initializing search engine: {e}")
+        print(f"求交测试过程中出现错误: {e}")
         import traceback
         traceback.print_exc()
 
 if __name__ == "__main__":
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Search Engine Test")
-    parser.add_argument("--interactive", "-i", action="store_true", 
-                       help="Run in interactive mode")
-    
-    args = parser.parse_args()
-    
-    if args.interactive:
-        interactive_search()
-    else:
-        test_search_engine()
+    test_search_engine()
+    test_posting_intersection()
