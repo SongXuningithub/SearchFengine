@@ -35,12 +35,17 @@ class SearchEngine:
         # 文档统计信息
         self.doc_stats = self._load_document_stats()
         
+        # 预计算词频统计信息
+        self.term_doc_freq = self._calculate_term_doc_frequency()
+        
         logger.info("SearchEngine initialized")
     
     def _load_document_stats(self) -> Dict[int, Dict]:
         """加载文档统计信息"""
         doc_stats = {}
+        # 统计耗时
         try:
+            start_time = time.time()
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
@@ -60,12 +65,26 @@ class SearchEngine:
                 }
             
             conn.close()
-            logger.info(f"Loaded {len(doc_stats)} document stats")
+            end_time = time.time()
+            logger.info(f"Loaded {len(doc_stats)} document stats in {end_time - start_time} seconds")
             
         except Exception as e:
             logger.error(f"Error loading document stats: {e}")
         
         return doc_stats
+    
+    def _calculate_term_doc_frequency(self) -> Dict[str, int]:
+        """预计算每个词的文档频率"""
+        term_doc_freq = defaultdict(int)
+        
+        for doc_info in self.doc_stats.values():
+            # 统计文档中出现的唯一词
+            unique_terms = set(doc_info['tokens'])
+            for term in unique_terms:
+                term_doc_freq[term] += 1
+        
+        logger.info(f"Calculated document frequency for {len(term_doc_freq)} terms")
+        return dict(term_doc_freq)
     
     def tokenize_query(self, query: str) -> List[str]:
         """
@@ -144,17 +163,17 @@ class SearchEngine:
         score = 0.0
         
         for term in query_terms:
-            # 获取该term在文档中的词频
-            term_freq = doc_info['tokens'].count(term)
-            if term_freq == 0:
+            # 获取该term在文档中的词频（包括标题和内容）
+            title_tokens = self.tokenize_query(doc_info['title'])
+            content_freq = doc_info['tokens'].count(term)
+            title_freq = title_tokens.count(term)
+            total_freq = content_freq + title_freq * 2  # 标题中的词权重更高
+            
+            if total_freq == 0:
                 continue
             
-            # 获取该term的文档频率
-            doc_freq = 0
-            for doc in self.doc_stats.values():
-                if term in doc['tokens']:
-                    doc_freq += 1
-            
+            # 获取该term的文档频率（使用预计算的值）
+            doc_freq = self.term_doc_freq.get(term, 0)
             if doc_freq == 0:
                 continue
             
@@ -162,8 +181,8 @@ class SearchEngine:
             idf = math.log((len(self.doc_stats) - doc_freq + 0.5) / (doc_freq + 0.5))
             
             # 计算BM25分数
-            numerator = term_freq * (self.bm25_k1 + 1)
-            denominator = term_freq + self.bm25_k1 * (1 - self.bm25_b + self.bm25_b * doc_length / avg_doc_length)
+            numerator = total_freq * (self.bm25_k1 + 1)
+            denominator = total_freq + self.bm25_k1 * (1 - self.bm25_b + self.bm25_b * doc_length / avg_doc_length)
             
             score += idf * numerator / denominator
         
@@ -208,10 +227,17 @@ class SearchEngine:
         
         # 4. 使用BM25计算相关性分数
         doc_scores = []
-        for doc_id in intersection_docs:
-            score = self.calculate_bm25_score(query_terms, doc_id)
-            if score > 0:
+        logger.info(f"Calculating BM25 scores for {len(intersection_docs)} documents")
+        for i, doc_id in enumerate(intersection_docs):
+            if i < 5:  # 只记录前5个文档的调试信息
+                score = self.calculate_bm25_score(query_terms, doc_id)
+                logger.info(f"Doc {doc_id}: score = {score}")
                 doc_scores.append((doc_id, score))
+            else:
+                score = self.calculate_bm25_score(query_terms, doc_id)
+                doc_scores.append((doc_id, score))
+        
+        logger.info(f"Calculated scores for {len(doc_scores)} documents")
         
         # 5. 按分数排序
         doc_scores.sort(key=lambda x: x[1], reverse=True)

@@ -83,9 +83,9 @@ function performSearch(query) {
     fetch(`/api/search?q=${encodeURIComponent(query)}&max_results=20`)
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                displayResults(data.results, data.total, query);
-                displayStats(data.total, query);
+            if (data.success && data.results !== undefined) {
+                displayResults(data.results, data.total_results, query);
+                displayStats(data.total_results, query);
             } else {
                 resultsContainer.innerHTML = `
                     <div class="error">
@@ -106,7 +106,7 @@ function performSearch(query) {
         });
 }
 
-function displayResults(results, total, query) {
+function displayResults(results, total_results, query) {
     const container = document.getElementById('searchResults');
     
     if (results.length === 0) {
@@ -166,12 +166,12 @@ function displayResults(results, total, query) {
     container.innerHTML = resultsHtml;
 }
 
-function displayStats(total, query) {
+function displayStats(total_results, query) {
     const container = document.getElementById('searchStats');
     
     container.innerHTML = `
         <div class="stats-info">
-            <span>找到 ${total} 个相关结果</span>
+            <span>找到 ${total_results} 个相关结果</span>
             <span>搜索词: "${query}"</span>
         </div>
     `;

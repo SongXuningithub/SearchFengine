@@ -132,20 +132,20 @@ function loadSystemStats() {
     fetch('/api/stats')
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
+            if (data.success && data.total_documents !== undefined) {
                 const container = document.getElementById('systemStats');
                 container.innerHTML = `
                     <div class="stat-card">
-                        <div class="stat-number">${data.stats.total_documents.toLocaleString()}</div>
+                        <div class="stat-number">${data.total_documents.toLocaleString()}</div>
                         <div class="stat-label">文档总数</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number">${data.stats.unique_words.toLocaleString()}</div>
-                        <div class="stat-label">词汇数量</div>
+                        <div class="stat-number">${Math.round(data.avg_document_length)}</div>
+                        <div class="stat-label">平均文档长度</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number">${Math.round(data.stats.avg_doc_length)}</div>
-                        <div class="stat-label">平均文档长度</div>
+                        <div class="stat-number">${data.max_results}</div>
+                        <div class="stat-label">最大结果数</div>
                     </div>
                 `;
             }
@@ -156,10 +156,10 @@ function loadSystemStats() {
 }
 
 function fetchSuggestions(query) {
-    fetch(`/api/suggest?q=${encodeURIComponent(query)}&max=5`)
+    fetch(`/api/suggest?q=${encodeURIComponent(query)}&limit=5`)
         .then(response => response.json())
         .then(data => {
-            if (data.success && data.suggestions.length > 0) {
+            if (data.success && data.suggestions && data.suggestions.length > 0) {
                 const container = document.getElementById('searchSuggestions');
                 container.innerHTML = data.suggestions.map(suggestion => `
                     <div class="suggestion-item" onclick="selectSuggestion('${suggestion}')">

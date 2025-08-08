@@ -7,6 +7,7 @@ import logging
 import sys
 import os
 import time
+from collections import defaultdict
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 
@@ -105,6 +106,7 @@ def search():
         
         # 构建响应
         response = {
+            'success': True,
             'query': query,
             'total_results': len(results),
             'search_time': round(search_time, 4),
@@ -118,6 +120,7 @@ def search():
     except Exception as e:
         logger.error(f"Search error: {e}")
         return jsonify({
+            'success': False,
             'error': 'Search failed',
             'message': str(e)
         }), 500
@@ -127,10 +130,14 @@ def get_stats():
     """获取搜索引擎统计信息"""
     try:
         stats = search_engine.get_search_stats()
-        return jsonify(stats)
+        return jsonify({
+            'success': True,
+            **stats
+        })
     except Exception as e:
         logger.error(f"Stats error: {e}")
         return jsonify({
+            'success': False,
             'error': 'Failed to get stats',
             'message': str(e)
         }), 500
@@ -191,6 +198,7 @@ def suggest():
                 break
         
         return jsonify({
+            'success': True,
             'query': query,
             'suggestions': list(suggestions)[:limit]
         })
@@ -198,7 +206,50 @@ def suggest():
     except Exception as e:
         logger.error(f"Suggest error: {e}")
         return jsonify({
+            'success': False,
             'error': 'Failed to get suggestions',
+            'message': str(e)
+        }), 500
+
+@app.route('/api/keywords', methods=['GET'])
+def get_keywords():
+    """
+    获取热门关键词接口
+    
+    GET参数:
+        top: 返回的关键词数量
+    """
+    try:
+        top_k = int(request.args.get('top', 20))
+        
+        # 简单的关键词统计：基于文档标题和内容中的词频
+        keyword_count = defaultdict(int)
+        
+        for doc_info in search_engine.doc_stats.values():
+            # 统计标题中的词
+            title_tokens = search_engine.tokenize_query(doc_info['title'])
+            for token in title_tokens:
+                if len(token) > 1:  # 过滤单字符词
+                    keyword_count[token] += 2  # 标题中的词权重更高
+            
+            # 统计内容中的词
+            for token in doc_info['tokens']:
+                if len(token) > 1:  # 过滤单字符词
+                    keyword_count[token] += 1
+        
+        # 按频率排序并返回前top_k个
+        sorted_keywords = sorted(keyword_count.items(), key=lambda x: x[1], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'keywords': sorted_keywords[:top_k]
+        })
+        
+    except Exception as e:
+        logger.error(f"Keywords error: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to get keywords',
             'message': str(e)
         }), 500
 
